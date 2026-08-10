@@ -216,8 +216,8 @@
             const ctx = document.getElementById('timeSeriesChart').getContext('2d');
             const dataSet = timeSeriesData[granularity] || {};
             const labels = Object.keys(dataSet);
-            const actions = ['start_crossing', 'view_stats', 'view_info', 'plan_route'];
-            const colors = { start_crossing: '#3b82f6', view_stats: '#10b981', view_info: '#f59e0b', plan_route: '#8b5cf6' };
+            const actions = ['start_crossing', 'view_stats', 'view_info', 'plan_route', 'finish_crossing'];
+            const colors = { start_crossing: '#3b82f6', view_stats: '#10b981', view_info: '#f59e0b', plan_route: '#8b5cf6', finish_crossing: '#ef4444' };
 
             const datasets = actions.map(action => ({
                 label: action,

@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import os
 import redis
 import secrets
 from datetime import datetime
@@ -70,27 +71,38 @@ def get_all_categories(auth: bool = Depends(authenticate)):
 @app.get("/api/timeseries")
 def get_timeseries(auth: bool = Depends(authenticate)):
     """Daily, Monthly, and Yearly aggregates for historical trends."""
-    keys = r.keys("analytics:daily:*:main_menu")
     daily_data = defaultdict(lambda: defaultdict(int))
     monthly_data = defaultdict(lambda: defaultdict(int))
     yearly_data = defaultdict(lambda: defaultdict(int))
 
-    for key in keys:
-        date_str = key.split(":")[2]
+    def add(date_str, action, val_int):
         try:
             dt = datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError:
-            continue
-            
+            return
         month_str = dt.strftime("%Y-%m")
         year_str = dt.strftime("%Y")
-        
-        counts = r.hgetall(key)
-        for action, val in counts.items():
-            val_int = int(val)
-            daily_data[date_str][action] += val_int
-            monthly_data[month_str][action] += val_int
-            yearly_data[year_str][action] += val_int
+        daily_data[date_str][action] += val_int
+        monthly_data[month_str][action] += val_int
+        yearly_data[year_str][action] += val_int
+
+    for key in r.keys("analytics:daily:*:main_menu"):
+        date_str = key.split(":")[2]
+        for action, val in r.hgetall(key).items():
+            add(date_str, action, int(val))
+
+    # analytics:crossing_events:<date> holds the global daily counts; skip the
+    # lifetime key (no date suffix) and per-checkpoint variants
+    # (analytics:crossing_events:<checkpoint_id>[:date]) — add() no-ops on any
+    # suffix that isn't a YYYY-MM-DD date, so only the date-shaped keys count.
+    for key in r.keys("analytics:crossing_events:*"):
+        parts = key.split(":")
+        if len(parts) != 3:
+            continue
+        date_str = parts[2]
+        passed = r.hget(key, "passed")
+        if passed:
+            add(date_str, "finish_crossing", int(passed))
 
     return {
         "daily": dict(sorted(daily_data.items())),
