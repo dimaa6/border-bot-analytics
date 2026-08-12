@@ -48,6 +48,10 @@
         <!-- TAB 1: TODAY'S SNAPSHOT (LANDING PAGE) -->
         <div id="tab-today" class="tab-content active">
             <div class="card-grid">
+                <div class="metric-card">
+                    <div class="title">Today's Active / Total Users</div>
+                    <div class="value" id="user-stats">0 / 0</div>
+                </div>
                 <div class="metric-card"><div class="title">Today's Total Clicks</div><div class="value" id="today-total-clicks">0</div></div>
                 <div class="metric-card"><div class="title">Crossings Started</div><div class="value" id="today-crossings-started">0</div></div>
                 <div class="metric-card"><div class="title">Live Reports Submitted</div><div class="value" id="today-live-reports">0</div></div>
@@ -133,6 +137,10 @@
             const todayData = await todayRes.json();
             renderTodayPage(todayData);
 
+            const userRes = await fetch('/api/users');
+            const userData = await userRes.json();
+            document.getElementById('user-stats').innerText = `${userData.today_dau} / ${userData.global_uniques}`;
+
             // 2. Fetch Lifetime & Categorized Data
             const allRes = await fetch('/api/all');
             allData = await allRes.json();
@@ -184,9 +192,19 @@
                 type: 'pie',
                 data: { labels: Object.keys(data.crossing.directions), datasets: [{ data: Object.values(data.crossing.directions), backgroundColor: ['#10b981', '#f59e0b'] }] }
             });
+            const liveEventColors = {
+                'still_waiting': '#10b981',
+                'cancel': '#f59e0b',
+                'passed': '#ef4444',
+                'expired': '#8b5cf6'
+            };
+            const liveEventLabels = Object.keys(data.crossing.events || {});
+            const liveEventPalette = ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6', '#6b7280'];
+            const liveEventBgColors = liveEventLabels.map((key, idx) => liveEventColors[key] || liveEventPalette[idx % liveEventPalette.length]);
+
             new Chart(document.getElementById('liveEventsChart'), {
                 type: 'doughnut',
-                data: { labels: Object.keys(data.crossing.events), datasets: [{ data: Object.values(data.crossing.events), backgroundColor: ['#10b981', '#f59e0b', '#ef4444'] }] }
+                data: { labels: liveEventLabels, datasets: [{ data: Object.values(data.crossing.events || {}), backgroundColor: liveEventBgColors }] }
             });
 
             // Route Planner Tables
@@ -216,8 +234,8 @@
             const ctx = document.getElementById('timeSeriesChart').getContext('2d');
             const dataSet = timeSeriesData[granularity] || {};
             const labels = Object.keys(dataSet);
-            const actions = ['start_crossing', 'view_stats', 'view_info', 'plan_route'];
-            const colors = { start_crossing: '#3b82f6', view_stats: '#10b981', view_info: '#f59e0b', plan_route: '#8b5cf6' };
+            const actions = ['start_crossing', 'view_stats', 'view_info', 'plan_route', 'finish_crossing'];
+            const colors = { start_crossing: '#3b82f6', view_stats: '#10b981', view_info: '#f59e0b', plan_route: '#8b5cf6', finish_crossing: '#ef4444' };
 
             const datasets = actions.map(action => ({
                 label: action,
